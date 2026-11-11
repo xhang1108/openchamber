@@ -488,10 +488,10 @@ const ChatViewport = React.memo(({
         let fadeTimer: number | null = null;
         // Revealed once the geometry has settled: after the last hold the
         // list still lays rows out from its own measurements over a few
-        // frames, so the timeline stays hidden — pinned to the end on every
-        // frame — until the content height has held still for two frames,
-        // then shows already sitting on the end. The settle is bounded so a
-        // list that keeps growing (images, late tool output) still appears.
+        // frames, so the timeline stays hidden until the content height
+        // has held still for two frames, then shows already sitting on
+        // the end. The settle is bounded so a list that keeps growing
+        // (images, late tool output) still appears.
         const reveal = (fade: boolean) => {
             if (finished) return;
             finished = true;
@@ -505,16 +505,21 @@ const ChatViewport = React.memo(({
                 let height = -1;
                 if (node) {
                     height = node.scrollHeight;
-                    if (!endPinningReleasedRef.current) {
-                        const end = height - node.clientHeight;
-                        if (end - node.scrollTop > 1) node.scrollTop = end;
-                    }
                 }
                 stableFrames = height === lastHeight ? stableFrames + 1 : 0;
                 lastHeight = height;
                 if (stableFrames < TIMELINE_SETTLE_STABLE_FRAMES && performance.now() - startedAt < TIMELINE_SETTLE_CAP_MS) {
                     frame = window.requestAnimationFrame(settle);
                     return;
+                }
+                // Pin once, after the height settled: writing scrollTop on
+                // every frame fought the list's own measurement passes and
+                // moved the viewport on each frame of a height-differing
+                // switch, which reads as a jump. The end position is the
+                // same; only the intermediate writes are gone.
+                if (node && !endPinningReleasedRef.current && height >= 0) {
+                    const end = height - node.clientHeight;
+                    if (end - node.scrollTop > 1) node.scrollTop = end;
                 }
                 if (!fade) {
                     root.removeAttribute('data-timeline-reveal');
